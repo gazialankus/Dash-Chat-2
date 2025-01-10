@@ -12,6 +12,7 @@ class MessageListOptions {
     this.showFooterBeforeQuickReplies = false,
     this.loadEarlierBuilder,
     this.onLoadEarlier,
+    this.listStartWidget,
     this.typingBuilder,
     this.scrollPhysics,
   });
@@ -45,7 +46,11 @@ class MessageListOptions {
 
   /// Function to call when the top of the list is reached
   /// Useful to load more messages
-  final Future<void> Function()? onLoadEarlier;
+  /// Returns false when we know that the next call will not load anything
+  final Future<bool?> Function()? onLoadEarlier;
+
+  /// If you want to show a widget at the very beginning of the list
+  final Widget? listStartWidget;
 
   /// Builder to create your own typing widget
   final Widget Function(ChatUser user)? typingBuilder;

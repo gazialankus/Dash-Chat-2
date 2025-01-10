@@ -46,17 +46,32 @@ class MessageListState extends State<MessageList> {
   bool scrollToBottomIsVisible = false;
   bool isLoadingMore = false;
   late ScrollController scrollController;
+  bool showListStart = false;
 
   @override
   void initState() {
+    super.initState();
     scrollController =
         widget.messageListOptions.scrollController ?? ScrollController();
     scrollController.addListener(() => _onScroll());
-    super.initState();
+    if (widget.messageListOptions.onLoadEarlier == null) {
+      showListStart = true;
+    } else {
+      // with very few messages list start would not show otherwise
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          final canScroll = scrollController.position.maxScrollExtent > 0;
+          showListStart = !canScroll;
+        });
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final listStartWidget = showListStart ? widget.messageListOptions
+        .listStartWidget : null;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).requestFocus(FocusNode()),
       child: Stack(
@@ -70,8 +85,15 @@ class MessageListState extends State<MessageList> {
                   padding: widget.readOnly ? null : EdgeInsets.zero,
                   controller: scrollController,
                   reverse: true,
-                  itemCount: widget.messages.length,
+                  itemCount: widget.messages.length + (listStartWidget == null
+                      ? 0
+                      : 1),
                   itemBuilder: (BuildContext context, int i) {
+                    if (listStartWidget != null &&
+                        i == widget.messages.length) {
+                      return listStartWidget;
+                    }
+
                     final ChatMessage? previousMessage =
                         i < widget.messages.length - 1
                             ? widget.messages[i + 1]
@@ -225,9 +247,10 @@ class MessageListState extends State<MessageList> {
         isLoadingMore = true;
       });
       showScrollToBottom();
-      await widget.messageListOptions.onLoadEarlier!();
+      final noMoreOnTop = await widget.messageListOptions.onLoadEarlier!();
       setState(() {
         isLoadingMore = false;
+        showListStart = noMoreOnTop != null && !noMoreOnTop;
       });
     } else if (scrollController.offset > 200) {
       showScrollToBottom();
