@@ -97,10 +97,15 @@ class DefaultMessageText extends StatelessWidget {
             selectable: true,
             styleSheet: messageOptions.markdownStyleSheet,
             onTapLink: (String value, String? href, String title) {
-              if (href != null) {
-                openLink(href);
-              } else {
-                openLink(value);
+              final bool Function(String value, String? href, String title)?
+                  customOnTapLink = messageOptions.onTapLink;
+              if (customOnTapLink == null ||
+                  !customOnTapLink(value, href, title)) {
+                if (href != null) {
+                  openLink(href);
+                } else {
+                  openLink(value);
+                }
               }
             },
           )
