@@ -48,6 +48,10 @@ class MessageListState extends State<MessageList> {
   late ScrollController scrollController;
   bool showListStart = false;
 
+  var onlyLastOneChanged = false;
+  double? oldLastHeight;
+  double? lastOneSizeIncrease;
+
   @override
   void initState() {
     super.initState();
@@ -68,9 +72,35 @@ class MessageListState extends State<MessageList> {
   }
 
   @override
+  void didUpdateWidget(MessageList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    var onlyLastOneChanged = false;
+    final oldMessages = oldWidget.messages;
+    final newMessages = widget.messages;
+
+    if (oldMessages.length == newMessages.length) {
+      if (oldMessages.isNotEmpty && newMessages.isNotEmpty) {
+        final oldLast = oldMessages.last;
+        final newLast = newMessages.last;
+        if (oldLast != newLast) {
+          if (oldMessages.length > 2 && newMessages.length > 2) {
+            if (oldMessages[oldMessages.length - 2] ==
+                newMessages[newMessages.length - 2]) {
+              onlyLastOneChanged = true;
+              print('************ onlyLastOneChanged!');
+            }
+          }
+        }
+      }
+    }
+    this.onlyLastOneChanged = onlyLastOneChanged;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final listStartWidget = showListStart ? widget.messageListOptions
-        .listStartWidget : null;
+    final listStartWidget =
+        showListStart ? widget.messageListOptions.listStartWidget : null;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).requestFocus(FocusNode()),
@@ -85,9 +115,8 @@ class MessageListState extends State<MessageList> {
                   padding: widget.readOnly ? null : EdgeInsets.zero,
                   controller: scrollController,
                   reverse: true,
-                  itemCount: widget.messages.length + (listStartWidget == null
-                      ? 0
-                      : 1),
+                  itemCount: widget.messages.length +
+                      (listStartWidget == null ? 0 : 1),
                   itemBuilder: (BuildContext context, int i) {
                     if (listStartWidget != null &&
                         i == widget.messages.length) {
@@ -108,7 +137,7 @@ class MessageListState extends State<MessageList> {
                       isBeforeDateSeparator = _shouldShowDateSeparator(
                           message, nextMessage, widget.messageListOptions);
                     }
-                    return Column(
+                    final column = Column(
                       children: <Widget>[
                         if (isAfterDateSeparator)
                           widget.messageListOptions.dateSeparatorBuilder != null
@@ -138,6 +167,30 @@ class MessageListState extends State<MessageList> {
                             messageOptions: widget.messageOptions,
                           ),
                       ],
+                    );
+
+                    return SizeReportingWidget(
+                      onSize: (size) {
+                        if (i == 0) {
+                          final oldLastHeight = this.oldLastHeight;
+                          if (oldLastHeight != null && onlyLastOneChanged) {
+                            this.lastOneSizeIncrease =
+                                size.height - oldLastHeight;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              final lastOneSizeIncrease =
+                                  this.lastOneSizeIncrease;
+                              if (lastOneSizeIncrease != null) {
+                                scrollController.jumpTo(
+                                    scrollController.offset +
+                                        lastOneSizeIncrease);
+                              }
+                              this.lastOneSizeIncrease = null;
+                            });
+                          }
+                          this.oldLastHeight = size.height;
+                        }
+                      },
+                      child: column,
                     );
                   },
                 ),
@@ -237,6 +290,8 @@ class MessageListState extends State<MessageList> {
   /// Scroll listener to trigger different actions:
   /// show scroll-to-bottom btn and LoadEarlier behaviour
   Future<void> _onScroll() async {
+    print(
+        'off: ${scrollController.offset}, max: ${scrollController.position.maxScrollExtent}');
     bool topReached =
         scrollController.offset >= scrollController.position.maxScrollExtent &&
             !scrollController.position.outOfRange;
