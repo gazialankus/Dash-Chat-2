@@ -15,6 +15,7 @@ class MessageListOptions {
     this.listStartWidget,
     this.typingBuilder,
     this.scrollPhysics,
+    this.preventScrollWithFirstMessageSizeChange = false,
   });
 
   /// If you want to who a date separator between messages of different dates
@@ -57,6 +58,9 @@ class MessageListOptions {
 
   /// Scroll physics of the ListView
   final ScrollPhysics? scrollPhysics;
+
+  /// If you want to prevent the scroll when the first message size changes
+  final bool preventScrollWithFirstMessageSizeChange;
 }
 
 enum SeparatorFrequency { days, hours }

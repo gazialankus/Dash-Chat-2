@@ -48,7 +48,7 @@ class MessageListState extends State<MessageList> {
   late ScrollController scrollController;
   bool showListStart = false;
 
-  var onlyLastOneChanged = false;
+  var onlyFirstOneChanged = false;
   double? oldLastHeight;
   double? lastOneSizeIncrease;
 
@@ -75,26 +75,26 @@ class MessageListState extends State<MessageList> {
   void didUpdateWidget(MessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    var onlyLastOneChanged = false;
+    var onlyFirstOneChanged = false;
     final oldMessages = oldWidget.messages;
     final newMessages = widget.messages;
 
     if (oldMessages.length == newMessages.length) {
       if (oldMessages.isNotEmpty && newMessages.isNotEmpty) {
-        final oldLast = oldMessages.last;
-        final newLast = newMessages.last;
-        if (oldLast != newLast) {
+        final oldFirst = oldMessages.first;
+        final newFirst = newMessages.first;
+        if (oldFirst != newFirst) {
           if (oldMessages.length > 2 && newMessages.length > 2) {
-            if (oldMessages[oldMessages.length - 2] ==
-                newMessages[newMessages.length - 2]) {
-              onlyLastOneChanged = true;
-              print('************ onlyLastOneChanged!');
+            if (oldMessages[1] == newMessages[1]) {
+              // TODO maybe equality wont work
+              onlyFirstOneChanged = true;
+              print('************ onlyFirstOneChanged!');
             }
           }
         }
       }
     }
-    this.onlyLastOneChanged = onlyLastOneChanged;
+    this.onlyFirstOneChanged = onlyFirstOneChanged;
   }
 
   @override
@@ -171,18 +171,25 @@ class MessageListState extends State<MessageList> {
 
                     return SizeReportingWidget(
                       onSize: (size) {
+                        if (!widget.messageListOptions
+                            .preventScrollWithFirstMessageSizeChange) return;
                         if (i == 0) {
                           final oldLastHeight = this.oldLastHeight;
-                          if (oldLastHeight != null && onlyLastOneChanged) {
+                          if (oldLastHeight != null && onlyFirstOneChanged) {
                             this.lastOneSizeIncrease =
                                 size.height - oldLastHeight;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               final lastOneSizeIncrease =
                                   this.lastOneSizeIncrease;
                               if (lastOneSizeIncrease != null) {
-                                scrollController.jumpTo(
-                                    scrollController.offset +
-                                        lastOneSizeIncrease);
+                                // scrollController.jumpTo(
+                                //     scrollController.offset +
+                                //         lastOneSizeIncrease);
+                                scrollController.animateTo(
+                                  scrollController.offset + lastOneSizeIncrease,
+                                  duration: Duration(milliseconds: 100),
+                                  curve: Curves.ease,
+                                );
                               }
                               this.lastOneSizeIncrease = null;
                             });
@@ -290,8 +297,6 @@ class MessageListState extends State<MessageList> {
   /// Scroll listener to trigger different actions:
   /// show scroll-to-bottom btn and LoadEarlier behaviour
   Future<void> _onScroll() async {
-    print(
-        'off: ${scrollController.offset}, max: ${scrollController.position.maxScrollExtent}');
     bool topReached =
         scrollController.offset >= scrollController.position.maxScrollExtent &&
             !scrollController.position.outOfRange;
