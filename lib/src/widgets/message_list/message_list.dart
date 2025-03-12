@@ -11,6 +11,7 @@ class MessageList extends StatefulWidget {
     this.quickReplyOptions = const QuickReplyOptions(),
     this.scrollToBottomOptions = const ScrollToBottomOptions(),
     this.typingUsers,
+    this.buttonAfterTyping,
     Key? key,
   }) : super(key: key);
 
@@ -37,6 +38,9 @@ class MessageList extends StatefulWidget {
 
   /// List of users currently typing in the chat
   final List<ChatUser>? typingUsers;
+
+  /// Custom widget to display after typing text
+  final Widget? buttonAfterTyping;
 
   @override
   State<MessageList> createState() => MessageListState();
@@ -207,7 +211,8 @@ class MessageListState extends State<MessageList> {
                   if (widget.messageListOptions.typingBuilder != null) {
                     return widget.messageListOptions.typingBuilder!(user);
                   }
-                  return DefaultTypingBuilder(user: user);
+                  return DefaultTypingBuilder(
+                      user: user, buttonAfterTyping: widget.buttonAfterTyping);
                 }),
               if (widget.messageListOptions.showFooterBeforeQuickReplies &&
                   widget.messageListOptions.chatFooterBuilder != null)

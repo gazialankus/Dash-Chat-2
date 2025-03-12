@@ -5,6 +5,7 @@ class DefaultTypingBuilder extends StatelessWidget {
   const DefaultTypingBuilder({
     required this.user,
     this.text = 'is typing',
+    this.buttonAfterTyping,
     Key? key,
   }) : super(key: key);
 
@@ -13,6 +14,9 @@ class DefaultTypingBuilder extends StatelessWidget {
 
   /// Text to show after user's name in the indicator
   final String text;
+
+  /// Custom widget to display after typing text
+  final Widget? buttonAfterTyping;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +40,11 @@ class DefaultTypingBuilder extends StatelessWidget {
             ' $text',
             style: const TextStyle(fontSize: 12),
           ),
+          if (buttonAfterTyping != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: buttonAfterTyping!,
+            ),
         ],
       ),
     );

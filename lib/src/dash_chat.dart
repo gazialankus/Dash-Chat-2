@@ -13,6 +13,7 @@ class DashChat extends StatelessWidget {
     this.scrollToBottomOptions = const ScrollToBottomOptions(),
     this.readOnly = false,
     this.typingUsers,
+    this.buttonAfterTyping,
     Key? key,
   }) : super(key: key);
 
@@ -46,6 +47,9 @@ class DashChat extends StatelessWidget {
   /// List of users currently typing in the chat
   final List<ChatUser>? typingUsers;
 
+  /// Custom widget to display after typing text
+  final Widget? buttonAfterTyping;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -59,6 +63,7 @@ class DashChat extends StatelessWidget {
             quickReplyOptions: quickReplyOptions,
             scrollToBottomOptions: scrollToBottomOptions,
             typingUsers: typingUsers,
+            buttonAfterTyping: buttonAfterTyping,
             readOnly: readOnly,
           ),
         ),
