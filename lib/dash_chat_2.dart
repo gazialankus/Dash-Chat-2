@@ -12,7 +12,6 @@ import 'package:video_player/video_player.dart' as vp;
 
 import 'src/helpers/link_helper.dart';
 import 'src/widgets/image_provider/image_provider.dart';
-import 'src/widgets/size_reporting_widget.dart';
 
 export 'package:flutter_parsed_text/flutter_parsed_text.dart';
 

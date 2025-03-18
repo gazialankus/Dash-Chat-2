@@ -52,7 +52,7 @@ class MessageListState extends State<MessageList> {
   late ScrollController scrollController;
   bool showListStart = false;
 
-  var onlyFirstOneChanged = false;
+  // var onlyLastOneChanged = false;
   double? oldLastHeight;
   double? lastOneSizeIncrease;
 
@@ -64,21 +64,37 @@ class MessageListState extends State<MessageList> {
     scrollController.addListener(() => _onScroll());
     if (widget.messageListOptions.onLoadEarlier == null) {
       showListStart = true;
+      _scrollToBottomInitially();
     } else {
       // with very few messages list start would not show otherwise
+      print('MESSAGE COUNT AT INITSTATE ${widget.messages.length}');
       SchedulerBinding.instance.addPostFrameCallback((_) {
         setState(() {
           final canScroll = scrollController.position.maxScrollExtent > 0;
           showListStart = !canScroll;
         });
+        print('MESSAGE COUNT AT Sch ${widget.messages.length}');
+        _scrollToBottomInitially();
       });
     }
+  }
+
+  @override
+  void dispose() {
+    if (widget.messageListOptions.scrollController == null) {
+      scrollController.dispose();
+    }
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(MessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    print(
+        'DID UPDATE ${oldWidget.messages.length} -> ${widget.messages.length}');
+
+    var different = false;
     var onlyFirstOneChanged = false;
     final oldMessages = oldWidget.messages;
     final newMessages = widget.messages;
@@ -88,24 +104,64 @@ class MessageListState extends State<MessageList> {
         final oldFirst = oldMessages.first;
         final newFirst = newMessages.first;
         if (oldFirst != newFirst) {
+          different = true;
           if (oldMessages.length > 2 && newMessages.length > 2) {
             if (oldMessages[1] == newMessages[1]) {
-              // TODO maybe equality wont work
               onlyFirstOneChanged = true;
-              print('************ onlyFirstOneChanged!');
             }
           }
         }
       }
+    } else {
+      different = true;
     }
-    this.onlyFirstOneChanged = onlyFirstOneChanged;
+    final scrollToEnd = different &&
+        (!widget.messageListOptions.preventScrollWithFirstMessageSizeChange ||
+            !onlyFirstOneChanged);
+
+    print(
+        'scrollToEnd: $scrollToEnd = $different && (!${widget.messageListOptions.preventScrollWithFirstMessageSizeChange} || !$onlyFirstOneChanged)');
+
+    if (scrollToEnd) {
+      print('scrollToEnd');
+      _scrollToBottomAfterFrame();
+    }
   }
+
+  void _scrollToBottomAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('MESSAGE COUNT AT scroll ${widget.messages.length}');
+
+      scrollController.animateTo(
+        scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  Future<void> _scrollToBottomInitially() async {
+    await WidgetsBinding.instance.endOfFrame;
+    scrollController.jumpTo(
+      scrollController.position.maxScrollExtent,
+    );
+    // somehow need this second one or it won't fully scroll to the bottom
+    await WidgetsBinding.instance.endOfFrame;
+    scrollController.jumpTo(
+      scrollController.position.maxScrollExtent,
+    );
+  }
+
+  double? oldMaxHeight;
+  double? oldViewportDimension;
 
   @override
   Widget build(BuildContext context) {
     final listStartWidget =
         showListStart ? widget.messageListOptions.listStartWidget : null;
 
+    int itemCount =
+        1 + widget.messages.length + (listStartWidget == null ? 0 : 1);
     return GestureDetector(
       onTap: () => FocusScope.of(context).requestFocus(FocusNode()),
       child: Stack(
@@ -114,97 +170,96 @@ class MessageListState extends State<MessageList> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Expanded(
-                child: ListView.builder(
-                  physics: widget.messageListOptions.scrollPhysics,
-                  padding: widget.readOnly ? null : EdgeInsets.zero,
-                  controller: scrollController,
-                  reverse: true,
-                  itemCount: widget.messages.length +
-                      (listStartWidget == null ? 0 : 1),
-                  itemBuilder: (BuildContext context, int i) {
-                    if (listStartWidget != null &&
-                        i == widget.messages.length) {
-                      return listStartWidget;
-                    }
+                child: LayoutBuilder(builder: (_, constraints) {
+                  if (oldMaxHeight != null) {
+                    if (oldMaxHeight != constraints.maxHeight) {
+                      oldMaxHeight = constraints.maxHeight;
+                      final oldViewportDimension =
+                          scrollController.position.viewportDimension;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        final newViewportDimension =
+                            scrollController.position.viewportDimension;
 
-                    final ChatMessage? previousMessage =
-                        i < widget.messages.length - 1
-                            ? widget.messages[i + 1]
-                            : null;
-                    final ChatMessage? nextMessage =
-                        i > 0 ? widget.messages[i - 1] : null;
-                    final ChatMessage message = widget.messages[i];
-                    final bool isAfterDateSeparator = _shouldShowDateSeparator(
-                        previousMessage, message, widget.messageListOptions);
-                    bool isBeforeDateSeparator = false;
-                    if (nextMessage != null) {
-                      isBeforeDateSeparator = _shouldShowDateSeparator(
-                          message, nextMessage, widget.messageListOptions);
+                        print(
+                            'viewport, old and new: $oldViewportDimension $newViewportDimension');
+                        final diff =
+                            newViewportDimension - oldViewportDimension;
+                        print('diff: $diff');
+                        scrollController.jumpTo(scrollController.offset - diff);
+                      });
                     }
-                    final column = Column(
-                      children: <Widget>[
-                        if (isAfterDateSeparator)
-                          widget.messageListOptions.dateSeparatorBuilder != null
-                              ? widget.messageListOptions
-                                  .dateSeparatorBuilder!(message.createdAt)
-                              : DefaultDateSeparator(
-                                  date: message.createdAt,
-                                  messageListOptions: widget.messageListOptions,
-                                ),
-                        if (widget.messageOptions.messageRowBuilder !=
-                            null) ...<Widget>[
-                          widget.messageOptions.messageRowBuilder!(
-                            message,
-                            previousMessage,
-                            nextMessage,
-                            isAfterDateSeparator,
-                            isBeforeDateSeparator,
-                          ),
-                        ] else
-                          MessageRow(
-                            message: widget.messages[i],
-                            nextMessage: nextMessage,
-                            previousMessage: previousMessage,
-                            currentUser: widget.currentUser,
-                            isAfterDateSeparator: isAfterDateSeparator,
-                            isBeforeDateSeparator: isBeforeDateSeparator,
-                            messageOptions: widget.messageOptions,
-                          ),
-                      ],
-                    );
+                  } else {
+                    oldMaxHeight = constraints.maxHeight;
+                  }
+                  return ListView.builder(
+                    physics: widget.messageListOptions.scrollPhysics,
+                    padding: widget.readOnly ? null : EdgeInsets.zero,
+                    controller: scrollController,
+                    itemCount: itemCount,
+                    itemBuilder: (BuildContext context, int iii) {
+                      if (iii == 0) {
+                        return SizedBox(
+                          height: constraints.maxHeight / 2,
+                        );
+                      }
+                      int ii = iii - 1;
+                      int i = itemCount - ii - 2;
+                      if (listStartWidget != null &&
+                          i == widget.messages.length) {
+                        return listStartWidget;
+                      }
 
-                    return SizeReportingWidget(
-                      onSize: (size) {
-                        if (!widget.messageListOptions
-                            .preventScrollWithFirstMessageSizeChange) return;
-                        if (i == 0) {
-                          final oldLastHeight = this.oldLastHeight;
-                          if (oldLastHeight != null && onlyFirstOneChanged) {
-                            this.lastOneSizeIncrease =
-                                size.height - oldLastHeight;
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              final lastOneSizeIncrease =
-                                  this.lastOneSizeIncrease;
-                              if (lastOneSizeIncrease != null) {
-                                // scrollController.jumpTo(
-                                //     scrollController.offset +
-                                //         lastOneSizeIncrease);
-                                scrollController.animateTo(
-                                  scrollController.offset + lastOneSizeIncrease,
-                                  duration: Duration(milliseconds: 100),
-                                  curve: Curves.ease,
-                                );
-                              }
-                              this.lastOneSizeIncrease = null;
-                            });
-                          }
-                          this.oldLastHeight = size.height;
-                        }
-                      },
-                      child: column,
-                    );
-                  },
-                ),
+                      final ChatMessage? previousMessage =
+                          i < widget.messages.length - 1
+                              ? widget.messages[i + 1]
+                              : null;
+                      final ChatMessage? nextMessage =
+                          i > 0 ? widget.messages[i - 1] : null;
+                      final ChatMessage message = widget.messages[i];
+                      final bool isAfterDateSeparator =
+                          _shouldShowDateSeparator(previousMessage, message,
+                              widget.messageListOptions);
+                      bool isBeforeDateSeparator = false;
+                      if (nextMessage != null) {
+                        isBeforeDateSeparator = _shouldShowDateSeparator(
+                            message, nextMessage, widget.messageListOptions);
+                      }
+                      return Column(
+                        children: <Widget>[
+                          if (isAfterDateSeparator)
+                            widget.messageListOptions.dateSeparatorBuilder !=
+                                    null
+                                ? widget.messageListOptions
+                                    .dateSeparatorBuilder!(message.createdAt)
+                                : DefaultDateSeparator(
+                                    date: message.createdAt,
+                                    messageListOptions:
+                                        widget.messageListOptions,
+                                  ),
+                          if (widget.messageOptions.messageRowBuilder !=
+                              null) ...<Widget>[
+                            widget.messageOptions.messageRowBuilder!(
+                              message,
+                              previousMessage,
+                              nextMessage,
+                              isAfterDateSeparator,
+                              isBeforeDateSeparator,
+                            ),
+                          ] else
+                            MessageRow(
+                              message: widget.messages[i],
+                              nextMessage: nextMessage,
+                              previousMessage: previousMessage,
+                              currentUser: widget.currentUser,
+                              isAfterDateSeparator: isAfterDateSeparator,
+                              isBeforeDateSeparator: isBeforeDateSeparator,
+                              messageOptions: widget.messageOptions,
+                            ),
+                        ],
+                      );
+                    },
+                  );
+                }),
               ),
               if (widget.typingUsers != null && widget.typingUsers!.isNotEmpty)
                 ...widget.typingUsers!.map((ChatUser user) {
@@ -303,11 +358,14 @@ class MessageListState extends State<MessageList> {
   /// show scroll-to-bottom btn and LoadEarlier behaviour
   Future<void> _onScroll() async {
     bool topReached =
-        scrollController.offset >= scrollController.position.maxScrollExtent &&
+        scrollController.offset <= scrollController.position.minScrollExtent &&
             !scrollController.position.outOfRange;
+    print(
+        'topReached: $topReached offset: ${scrollController.offset}, min: ${scrollController.position.minScrollExtent}, max: ${scrollController.position.maxScrollExtent}, oor: ${scrollController.position.outOfRange}');
     if (topReached &&
         widget.messageListOptions.onLoadEarlier != null &&
         !isLoadingMore) {
+      print('case 1');
       setState(() {
         isLoadingMore = true;
       });
@@ -317,9 +375,12 @@ class MessageListState extends State<MessageList> {
         isLoadingMore = false;
         showListStart = noMoreOnTop != null && !noMoreOnTop;
       });
-    } else if (scrollController.offset > 200) {
+    } else if (scrollController.offset <
+        scrollController.position.maxScrollExtent - 200) {
+      print('case 2');
       showScrollToBottom();
     } else {
+      print('case 3 hide');
       hideScrollToBottom();
     }
   }
@@ -338,5 +399,12 @@ class MessageListState extends State<MessageList> {
         scrollToBottomIsVisible = false;
       });
     }
+  }
+
+  Future<void> startMaxExtentReporting(String msg) async {
+    print('ExtentTotal $msg ${scrollController.position.extentTotal}');
+    await WidgetsBinding.instance.endOfFrame;
+    print(
+        'ExtentTotal next frame $msg ${scrollController.position.extentTotal}');
   }
 }

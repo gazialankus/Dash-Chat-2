@@ -89,7 +89,7 @@ class DefaultScrollToBottom extends StatelessWidget {
               onScrollToBottomPress!();
             }
             scrollController.animateTo(
-              0.0,
+              scrollController.position.maxScrollExtent,
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
             );
