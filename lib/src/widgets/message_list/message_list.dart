@@ -67,13 +67,11 @@ class MessageListState extends State<MessageList> {
       _scrollToBottomInitially();
     } else {
       // with very few messages list start would not show otherwise
-      print('MESSAGE COUNT AT INITSTATE ${widget.messages.length}');
       SchedulerBinding.instance.addPostFrameCallback((_) {
         setState(() {
           final canScroll = scrollController.position.maxScrollExtent > 0;
           showListStart = !canScroll;
         });
-        print('MESSAGE COUNT AT Sch ${widget.messages.length}');
         _scrollToBottomInitially();
       });
     }
@@ -90,9 +88,6 @@ class MessageListState extends State<MessageList> {
   @override
   void didUpdateWidget(MessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    print(
-        'DID UPDATE ${oldWidget.messages.length} -> ${widget.messages.length}');
 
     var different = false;
     var onlyFirstOneChanged = false;
@@ -119,19 +114,13 @@ class MessageListState extends State<MessageList> {
         (!widget.messageListOptions.preventScrollWithFirstMessageSizeChange ||
             !onlyFirstOneChanged);
 
-    print(
-        'scrollToEnd: $scrollToEnd = $different && (!${widget.messageListOptions.preventScrollWithFirstMessageSizeChange} || !$onlyFirstOneChanged)');
-
     if (scrollToEnd) {
-      print('scrollToEnd');
       _scrollToBottomAfterFrame();
     }
   }
 
   void _scrollToBottomAfterFrame() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('MESSAGE COUNT AT scroll ${widget.messages.length}');
-
       scrollController.animateTo(
         scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 100),
@@ -179,12 +168,8 @@ class MessageListState extends State<MessageList> {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         final newViewportDimension =
                             scrollController.position.viewportDimension;
-
-                        print(
-                            'viewport, old and new: $oldViewportDimension $newViewportDimension');
                         final diff =
                             newViewportDimension - oldViewportDimension;
-                        print('diff: $diff');
                         scrollController.jumpTo(scrollController.offset - diff);
                       });
                     }
@@ -360,12 +345,9 @@ class MessageListState extends State<MessageList> {
     bool topReached =
         scrollController.offset <= scrollController.position.minScrollExtent &&
             !scrollController.position.outOfRange;
-    print(
-        'topReached: $topReached offset: ${scrollController.offset}, min: ${scrollController.position.minScrollExtent}, max: ${scrollController.position.maxScrollExtent}, oor: ${scrollController.position.outOfRange}');
     if (topReached &&
         widget.messageListOptions.onLoadEarlier != null &&
         !isLoadingMore) {
-      print('case 1');
       setState(() {
         isLoadingMore = true;
       });
@@ -377,10 +359,8 @@ class MessageListState extends State<MessageList> {
       });
     } else if (scrollController.offset <
         scrollController.position.maxScrollExtent - 200) {
-      print('case 2');
       showScrollToBottom();
     } else {
-      print('case 3 hide');
       hideScrollToBottom();
     }
   }
@@ -399,12 +379,5 @@ class MessageListState extends State<MessageList> {
         scrollToBottomIsVisible = false;
       });
     }
-  }
-
-  Future<void> startMaxExtentReporting(String msg) async {
-    print('ExtentTotal $msg ${scrollController.position.extentTotal}');
-    await WidgetsBinding.instance.endOfFrame;
-    print(
-        'ExtentTotal next frame $msg ${scrollController.position.extentTotal}');
   }
 }
